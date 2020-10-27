@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	msgraph "github.com/yaegashi/msgraph.go/beta"
 	"github.com/yaegashi/msgraph.go/msauth"
@@ -19,6 +20,7 @@ import (
 const CHECK_INTERVAL = 5 * time.Minute
 
 func main() {
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Info().Msg("Started Azure CRB manager")
 
 	clientID := os.Getenv("AZURE_CLIENT_ID")
