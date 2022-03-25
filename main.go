@@ -18,9 +18,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-const CHECK_INTERVAL = 5 * time.Minute
-
-var aadPrefix = true
+const CheckInterval = 5 * time.Minute
 
 func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
@@ -38,10 +36,7 @@ func main() {
 	if len(groupID) == 0 {
 		log.Fatal().Msgf("Environment variable AZURE_AD_GROUP_ID missing")
 	}
-	prefix := os.Getenv("AAD_PREFIX")
-	if len(prefix) == 0 {
-		aadPrefix = false
-	}
+	_, aadPrefix := os.LookupEnv("AAD_PREFIX")
 
 	for {
 		// Get AAD users
@@ -51,7 +46,7 @@ func main() {
 			groupID)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get list of users from Azure AD")
-			<-time.After(CHECK_INTERVAL)
+			<-time.After(CheckInterval)
 			continue
 		}
 
@@ -59,7 +54,7 @@ func main() {
 		kubeUsers, err := GetCRBsFromKube()
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get list of clusterroles from Kubernetes")
-			<-time.After(CHECK_INTERVAL)
+			<-time.After(CheckInterval)
 			continue
 		}
 
@@ -67,19 +62,19 @@ func main() {
 		err = DeleteCRBsFromKube(aadUsers, kubeUsers)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to delete CRBs from Kubernetes")
-			<-time.After(CHECK_INTERVAL)
+			<-time.After(CheckInterval)
 			continue
 		}
 
 		// Add users
-		err = AddCRBsToKube(aadUsers, kubeUsers)
+		err = AddCRBsToKube(aadUsers, kubeUsers, aadPrefix)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to add CRBs from Kubernetes")
-			<-time.After(CHECK_INTERVAL)
+			<-time.After(CheckInterval)
 			continue
 		}
 
-		<-time.After(CHECK_INTERVAL)
+		<-time.After(CheckInterval)
 	}
 }
 
@@ -180,17 +175,14 @@ func DeleteCRBsFromKube(aadUsers, kubeUsers map[string]string) error {
 	return nil
 }
 
-func prefix(email string) string {
-	var response string
-	if aadPrefix {
-		response = "aad:" + email
-	} else {
-		response = email
+func aadPrefix(email string, withAadPrefix bool) string {
+	if withAadPrefix {
+		return "aad:" + email
 	}
-	return response
+	return email
 }
 
-func AddCRBsToKube(aadUsers, kubeUsers map[string]string) error {
+func AddCRBsToKube(aadUsers, kubeUsers map[string]string, withAadPrefix bool) error {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return err
@@ -224,7 +216,7 @@ func AddCRBsToKube(aadUsers, kubeUsers map[string]string) error {
 				{
 					APIGroup: "rbac.authorization.k8s.io",
 					Kind:     "User",
-					Name:     prefix(email),
+					Name:     aadPrefix(email, withAadPrefix),
 				},
 			},
 			RoleRef: rbacv1.RoleRef{

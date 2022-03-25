@@ -1,0 +1,32 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-crb-manager
+  namespace: kube-system
+  labels:
+    app: kube-crb-manager
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: kube-crb-manager
+  template:
+    metadata:
+      labels:
+        app: kube-crb-manager
+    spec:
+      serviceAccountName: kube-crb-manager
+      containers:
+      - name: kube-crb-manager
+        image: ghcr.io/binkhq/kube-crb-manager:0.1.0
+        env:
+        - name: AZURE_CLIENT_ID
+          value: REPLACE_ME
+        - name: AZURE_CLIENT_SECRET
+          value: REPLACE_ME
+        - name: AZURE_AD_GROUP_ID
+          value: REPLACE_ME
+
