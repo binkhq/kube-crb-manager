@@ -2,14 +2,15 @@ package main
 
 import (
 	"context"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	msgraph "github.com/yaegashi/msgraph.go/beta"
 	"github.com/yaegashi/msgraph.go/msauth"
 	"golang.org/x/oauth2"
-	"os"
-	"strings"
-	"time"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +19,8 @@ import (
 )
 
 const CHECK_INTERVAL = 5 * time.Minute
+
+var aadPrefix = true
 
 func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
@@ -34,6 +37,10 @@ func main() {
 	groupID := os.Getenv("AZURE_AD_GROUP_ID")
 	if len(groupID) == 0 {
 		log.Fatal().Msgf("Environment variable AZURE_AD_GROUP_ID missing")
+	}
+	prefix := os.Getenv("AAD_PREFIX")
+	if len(prefix) == 0 {
+		aadPrefix = false
 	}
 
 	for {
@@ -173,6 +180,16 @@ func DeleteCRBsFromKube(aadUsers, kubeUsers map[string]string) error {
 	return nil
 }
 
+func prefix(email string) string {
+	var response string
+	if aadPrefix {
+		response = "aad:" + email
+	} else {
+		response = email
+	}
+	return response
+}
+
 func AddCRBsToKube(aadUsers, kubeUsers map[string]string) error {
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -207,7 +224,7 @@ func AddCRBsToKube(aadUsers, kubeUsers map[string]string) error {
 				{
 					APIGroup: "rbac.authorization.k8s.io",
 					Kind:     "User",
-					Name:     "aad:" + email,
+					Name:     prefix(email),
 				},
 			},
 			RoleRef: rbacv1.RoleRef{
