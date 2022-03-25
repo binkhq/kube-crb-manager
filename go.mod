@@ -1,4 +1,4 @@
-module git.bink.com/tools/kube-crb-manager
+module github.com/binkhq/kube-crb-manager
 
 go 1.14
 

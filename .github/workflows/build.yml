@@ -1,0 +1,64 @@
+name: "Build and Release"
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v2
+        with:
+          version: latest
+
+  build:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx
+          restore-keys: |
+            ${{ runner.os }}-buildx
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: test
+
+  kube:
+    name: kustomize-validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Validate Helm chart
+        uses: stefanprodan/kube-tools@v1
+        with:
+          kubectl: 1.19.11
+          helm: 2.17.0
+          helmv3: 3.6.0
+          command: |
+            kustomize build ./kustomize | kubeval --strict --kubernetes-version 1.23.5 --schema-location https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master
+            # Looted from https://github.com/stefanprodan/podinfo/blob/master/.github/workflows/test.yml
+            # kustomize build ./kustomize | conftest test -p .github/polic...
