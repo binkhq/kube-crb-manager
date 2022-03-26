@@ -1,4 +1,4 @@
 lint:
 	golangci-lint run -v
-	go fmt ./...
+	gofumpt -l -w .
 
